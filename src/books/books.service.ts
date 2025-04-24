@@ -1,46 +1,46 @@
-import { Injectable } from '@nestjs/common';
-import { Book } from 'src/interfaces/book.interface';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Book } from './schemas/book.schema';
+import { CreateBookDto } from './dto/create-book.dto';
+import { UpdateBookDto } from './dto/update-book.dto';
 
 @Injectable()
 export class BooksService {
-  private books: Book[] = [
-    {
-      id: 1,
-      title: 'The Great Gatsby',
-      author: 'F. Scott Fitzgerald',
-      year: 1925,
-    },
-    { id: 2, title: 'To Kill a Mockingbird', author: 'Harper Lee', year: 1960 },
-  ];
+  constructor(@InjectModel(Book.name) private bookModel: Model<Book>) {}
 
-  getAllBooks(): Book[] {
-    return this.books;
+  async findAll(): Promise<Book[]> {
+    return this.bookModel.find().exec();
   }
 
-  getBookById(id: number): Book | undefined {
-    return this.books.find((book) => book.id === id);
+  async findOne(id: string): Promise<Book> {
+    const book = await this.bookModel.findById(id).exec();
+    if (!book) {
+      throw new NotFoundException(`Book with ID ${id} not found`);
+    }
+    return book;
   }
 
-  createBook(book: Omit<Book, 'id'>): Book {
-    const newBook = {
-      id: this.books.length + 1,
-      ...book,
-    };
-    this.books.push(newBook);
-    return newBook;
+  async create(createBookDto: CreateBookDto): Promise<Book> {
+    const createdBook = new this.bookModel(createBookDto);
+    return createdBook.save();
   }
 
-  updateBook(id: number, updatedBook: Partial<Book>): Book | undefined {
-    const bookIndex = this.books.findIndex((book) => book.id === id);
-    if (bookIndex === -1) return undefined;
-
-    this.books[bookIndex] = { ...this.books[bookIndex], ...updatedBook };
-    return this.books[bookIndex];
+  async update(id: string, updateBookDto: UpdateBookDto): Promise<Book> {
+    const book = await this.bookModel
+      .findByIdAndUpdate(id, updateBookDto, { new: true })
+      .exec();
+    if (!book) {
+      throw new NotFoundException(`Book with ID ${id} not found`);
+    }
+    return book;
   }
 
-  deleteBook(id: number): boolean {
-    const initialLength = this.books.length;
-    this.books = this.books.filter((book) => book.id !== id);
-    return this.books.length !== initialLength;
+  async delete(id: string): Promise<Book> {
+    const book = await this.bookModel.findByIdAndDelete(id).exec();
+    if (!book) {
+      throw new NotFoundException(`Book with ID ${id} not found`);
+    }
+    return book;
   }
 }
